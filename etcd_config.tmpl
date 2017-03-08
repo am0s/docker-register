@@ -17,8 +17,8 @@
             # Container: {{ .Container.Name }}
             {
                 "name": "{{ .Container.Name }}",
-                "host": "192.168.2.32",
-                "port": {{ .Address.Port }},
+                "host": "{{ .Network.IP }}",
+                "port": {{ .Address.HostPort }},
             },
         {{ end }}
     {{ else if .Network }}
@@ -47,6 +47,7 @@ services = [
             {{ if eq $knownNetwork.Name $containerNetwork.Name }}
                 {{/* If only 1 port exposed, use that */}}
                 {{ if eq $addrLen 1 }}
+                    {{ $port := coalesce $container.Env.VIRTUAL_PORT "80" }}
                     {{ $address := index $container.Addresses 0 }}
                     {{ template "backend" (dict "Container" $container "Address" $address "Network" $containerNetwork) }}
                 {{/* If more than one port exposed, use the one matching VIRTUAL_PORT env var, falling back to standard web port 80 */}}
