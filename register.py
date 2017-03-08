@@ -1,5 +1,5 @@
 #!/usr/bin/python
-
+import argparse
 import sys
 import os
 import etcd
@@ -12,7 +12,14 @@ def load_config():
     return etcd_config
 
 
-def send_config(client, config):
+def send_config(client, config, host=None):
+    """
+
+    :param client:
+    :param config:
+    :param host: Override host for each container.
+    :return:
+    """
     try:
         client.read("/services")
     except (etcd.EtcdKeyNotFound, KeyError):
@@ -58,21 +65,25 @@ def send_config(client, config):
             }), ttl=15)
         for backend in backends:
             backend_name = backend.get('name')
+            backend_host = backend['host']
+            if host:
+                backend_host = host
             if not backend_name:
-                backend_name = backend['host'] + ':' + backend['port']
+                backend_name = backend_host + ':' + backend['port']
             try:
                 client.read("/services/{name}/backends/{backend}".format(name=name, backend=backend_name))
             except (etcd.EtcdKeyNotFound, KeyError):
                 client.write("/services/{name}/backends/{backend}".format(name=name, backend=backend_name), None, dir=True)
             client.write("/services/{name}/backends/{backend}/config".format(
                 name=name, backend=backend_name), json.dumps({
-                    'host': backend['host'],
+                    'host': backend_host,
                     'port': backend['port'],
                 }), ttl=15)
 
 
 def main():
     etcd_host = os.environ.get("ETCD_HOST")
+    backend_host = os.environ.get("HOST_IP")
     if not etcd_host:
         print("ETCD_HOST not set")
         sys.exit(1)
@@ -88,7 +99,7 @@ def main():
     client = etcd.Client(host=host, port=int(port))
 
     config_module = load_config()
-    send_config(client, config_module.services)
+    send_config(client, config_module.services, host=backend_host)
 
 
 if __name__ == "__main__":
